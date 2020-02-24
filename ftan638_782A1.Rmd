@@ -1,0 +1,406 @@
+---
+title: "STAT 782 Assignment 1"
+author: "Francis Tang UPI: ftan638"
+date: "Due: 27 March 2019"
+output: pdf_document
+---
+
+1. Use seq(), rep() and/or other commonly-used operators/functions and/or the recycling rule, but definitely not c(), nor any explicit loop, to create the following sequences.
+
+```{r}
+0:23*15
+```
+
+```{r}
+2^(0:8)
+```
+```{r}
+rep(1:4, 4:1)
+```
+
+```{r}
+rep(0:3, 4) + rep(1:4*10, each=4)
+```
+```{r}
+paste(substring(rep("-", 6), first = 1, last = 0:1), "x^", 1:6, "/", 1:6, sep = "", collapse = " + ")
+```
+
+2. This question makes use of data on 10,000 electric scooter trips in Austin, Texas.1 Download the file "AustinDockless.csv" from Canvas and run the following code to load the data into an R data frame.
+```{r}
+ dockless <- read.csv("AustinDockless.csv")
+```
+
+Find the length of the ten longest trips.
+```{r}
+sort(dockless$Trip.Distance, decreasing=TRUE)[1:10]
+```
+Find the start and end Cell IDs for trips longer than 19km.
+```{r}
+subset(dockless, Trip.Distance > 19000, select = Origin.Cell.ID:Destination.Cell.ID)
+```
+Find the longest trip (distance) between midnight and 8am.
+
+```{r}
+# pick the 12nd and 13rd integer out from Start.Time as Hour
+startHour = as.numeric(substring(dockless$Start.Time, 12, 13))
+
+# pick the 21st and 22nd element out from Start.Time as AM/PM
+startAMPM = substring(dockless$Start.Time, 21, 22)
+
+# pick time between midnight and 8am
+isRightStartPeriod = (startHour < 8 | startHour == 12) & startAMPM == "AM"
+
+# same procedure for End.Time
+endHour = as.numeric(substring(dockless$End.Time, 12, 13))
+endAMPM =  substring(dockless$End.Time, 21, 22)
+isRightEndPeriod = (endHour < 8 | endHour == 12) & endAMPM == "AM"
+
+# output the longest trip using max()
+max(dockless[isRightStartPeriod & isRightEndPeriod,]$Trip.Distance)
+```
+
+Find the average speed and the distance covered for the top ten fastest trips (trips with highest average speed), where average speed is calculated as distance divided by duration.
+
+```{r}
+dockless$Speed <- (dockless$Trip.Distance / dockless$Trip.Duration)
+dockless[order(dockless$Speed, decreasing=TRUE)[1:10],c(5,21)]
+```
+
+3. This question also works with the electronic scooter data. We will just focus on the distance variable Trip.Distance.
+
+Calculate the mean and standard deviation of the distance data.
+```{r}
+distMean = mean(dockless$Trip.Distance)
+print(distMean)
+```
+```{r}
+distSD = sd(dockless$Trip.Distance)
+print(distSD)
+```
+Calculate the median and upper and lower quartiles for the distance data (HINT: use the quantile() function).
+
+```{r}
+distQuartiles = quantile(dockless$Trip.Distance)
+print(distQuartiles)
+```
+
+Generate 10,000 random values from a Normal distribution (HINT: use the rnorm() function) with the same mean and standard deviation as the distance data and calculate the median and upper and lower quartiles of these random values.
+```{r}
+set.seed(1234)
+rand = rnorm(10000, mean = distMean, sd = distSD)
+randQuartiles = quantile(rand)
+print(randQuartiles)
+```
+
+Generate 1,000,000 random values from a Normal distribution with the same mean and standard deviation as the distance data and, dealing with each consecutive subset of 10,000 values, calculate 100 upper quartiles (one for each of the 100 subsets of 10,000 values)
+
+```{r}
+set.seed(1234)
+randNew = rnorm(1000000, mean = distMean, sd = distSD)
+
+# build a matrix based on randNew
+matrixRandNew = matrix(randNew, ncol = 100)
+Q3 = apply(matrixRandNew, 2, quantile)["75%",]
+print(Q3)
+```
+
+What proportion of the upper quartiles from the random data are less than the distance upper quartile ?
+```{r}
+pval = (sum(Q3 < distQuartiles["75%"]))/length(Q3)
+print(pval)
+```
+
+What does that tell us ?
+
+Answer:
+From the boxplots below and histgrams shown in the question, we can figure out the following features of the dataset:
+1. The original Trip.Distance is seriously right-skewed. 
+2. Most of the original data gathers around the range of [0,2500] and it has many outliars which spreads between [5000,20000]. This cause the original data has a much smaller median 1142 than the randomly generated data median 1623 which is the same as mean.
+3. Because of the dense distribution between [0,2500] we mentioned in the original dataset, the upper quartile value from original distance 2182 is much smaller than the random data upper quartile value 2736.
+
+```{r}
+boxplot(dockless$Trip.Distance)
+boxplot(rand)
+```
+
+4. Write a function called segments that takes three arguments: from, to, and rep. The function should generate a matrix with two columns, the first column containing from values and the second column containing to values. The argument rep should default to FALSE.
+
+```{r}
+segments = function(from, to, rep = FALSE){
+  cbind(from,to)
+}
+```
+
+Simplest use:
+```{r}
+segments(.1, .2)
+```
+
+
+Write your function so that it satisfies all of the features described below. You should add one feature at a time and check that all previous features remain satisfied when you add a new feature. You should make use of vectorised operators and functions rather than for loops whenever possible.
+
+The values in from and to should all be between -1 and 1. Values outside that range should be “clamped” to 1 with a warning.
+
+```{r}
+segments = function(from, to, rep = FALSE){
+  if(from < -1){
+    warning("'from' value(s) less than -1 raised to -1 \n")
+    from = -1
+  }
+  if(from > 1){
+    warning("'from' value(s) larger than 1 reduced to 1 \n")
+    from = 1
+  }
+  if(to < -1){
+    warning("'to' value(s) less than -1 raised to -1 \n")
+    to = -1
+  }
+  if(to > 1){
+    warning("'to' value(s) larger than 1 reduced to 1 \n")
+    to = 1
+  }
+  cbind(from,to)
+}
+```
+
+Sample tests:
+```{r}
+segments(.1, 1.2)
+segments(-1.2, .1)
+```
+
+The values in from and to can be vectors and they should both “recycle” to the longest length.
+```{r}
+# this step will be updated with the next condition: 
+# by adding a validation function to bound values into [-1,1]
+```
+
+
+
+The rows of the matrix should be in order from smallest from value to largest from value.
+```{r}
+segments = function(from, to, rep = FALSE){
+  # validate all out-of-rage value(s) into [-1,1]
+  
+  if(any(from < -1)){
+    warning("'from' value(s) less than -1 raised to -1 \n")
+    from = -1
+  }
+  if(any(from > 1)){
+    warning("'from' value(s) larger than 1 reduced to 1 \n")
+    from = 1
+  }
+  if(any(to < -1)){
+    warning("'to' value(s) less than -1 raised to -1 \n")
+    to = -1
+  }
+  if(any(to > 1)){
+    warning("'to' value(s) larger than 1 reduced to 1 \n")
+    to = 1
+  }
+  
+  # create matrix
+  matrix = cbind(from,to)
+  
+  # sort from column from small to large
+  matrix[order(matrix[,1]), ]
+
+}
+```
+
+Tests:
+```{r}
+segments(4:1/10, .9)
+```
+Tests:
+```{r}
+segments(c(.1, .2), c(.3, .4))
+segments(1:4/10, .9)
+```
+Any negative values in from and to should be treated as values measuring backward from 1.
+```{r}
+segments = function(from, to, rep = FALSE){
+  # validate all out-of-rage value(s) into [-1,1]
+  
+  if(any(from < -1)){
+    warning("'from' value(s) less than -1 raised to -1 \n")
+    from = -1
+  }
+  if(any(from > 1)){
+    warning("'from' value(s) larger than 1 reduced to 1 \n")
+    from = 1
+  }
+  if(any(to < -1)){
+    warning("'to' value(s) less than -1 raised to -1 \n")
+    to = -1
+  }
+  if(any(to > 1)){
+    warning("'to' value(s) larger than 1 reduced to 1 \n")
+    to = 1
+  }
+  # add 1 to all negative values
+  from[from < 0] = 1 + from[from < 0]
+  to[to < 0] = 1+ to[to < 0]
+  
+  # create matrix
+  matrix = cbind(from,to)
+  
+  # sort from column from small to large
+  matrix[order(matrix[,1]), ]
+
+}
+```
+
+Tests:
+```{r}
+segments(.1, -.1)
+segments(c(.1, .2), c(.7, -.2))
+```
+
+If any from values are larger than the corresponding to values, they should be swapped.
+```{r}
+segments = function(from, to, rep = FALSE){
+  # validate all out-of-rage value(s) into [-1,1]
+  
+  if(any(from < -1)){
+    warning("'from' value(s) less than -1 raised to -1 \n")
+    from = -1
+  }
+  if(any(from > 1)){
+    warning("'from' value(s) larger than 1 reduced to 1 \n")
+    from = 1
+  }
+  if(any(to < -1)){
+    warning("'to' value(s) less than -1 raised to -1 \n")
+    to = -1
+  }
+  if(any(to > 1)){
+    warning("'to' value(s) larger than 1 reduced to 1 \n")
+    to = 1
+  }
+  # add 1 to all negative values
+  from[from < 0] = 1 + from[from < 0]
+  to[to < 0] = 1+ to[to < 0]
+  
+  # create matrix
+  matrix = cbind(from,to)
+  
+  # create boolean varible boollargerfrom
+  boollargerfrom <- matrix[, "from"] > matrix[, "to"]
+  # temporary variable set as "to"
+  tempcol = matrix[, "to"][boollargerfrom]
+  # if from is larger than to, start swapping
+  matrix[, "to"][boollargerfrom] = matrix[, "from"][boollargerfrom]
+  matrix[, "from"][boollargerfrom] = tempcol
+  
+  # sort from column from small to large
+  matrix[order(matrix[,1]), ]
+
+}
+```
+
+Tests:
+```{r}
+segments(.9, .1)
+```
+
+If rep is TRUE, the function should “repeat” the values in the argument until they exceed 1.
+```{r}
+segments = function(from, to, rep = FALSE){
+  # validate all out-of-rage value(s) into [-1,1]
+  
+  if(any(from < -1)){
+    warning("'from' value(s) less than -1 raised to -1 \n")
+    from = -1
+  }
+  if(any(from > 1)){
+    warning("'from' value(s) larger than 1 reduced to 1 \n")
+    from = 1
+  }
+  if(any(to < -1)){
+    warning("'to' value(s) less than -1 raised to -1 \n")
+    to = -1
+  }
+  if(any(to > 1)){
+    warning("'to' value(s) larger than 1 reduced to 1 \n")
+    to = 1
+  }
+  # add 1 to all negative values
+  from[from < 0] = 1 + from[from < 0]
+  to[to < 0] = 1+ to[to < 0]
+  
+  # create matrix
+  matrix = cbind(from,to)
+  
+  # create boolean varible boollargerfrom
+  boollargerfrom <- matrix[, "from"] > matrix[, "to"]
+  # temporary variable set as "to"
+  tempcol = matrix[, "to"][boollargerfrom]
+  # if from is larger than to, start swapping
+  matrix[, "to"][boollargerfrom] = matrix[, "from"][boollargerfrom]
+  matrix[, "from"][boollargerfrom] = tempcol
+  
+  # sort from column from small to large
+  matrix = matrix[order(matrix[,1]), ]
+  
+  # when rep = TRUE, start the repeating process
+  if(rep & matrix[length(matrix)] < 1.0){
+    # if the initial matrix only has a single row
+    if(length(matrix) == 2)
+    {
+      # calculate the gap value between every rows
+      gap = (matrix[2] - matrix[1]) * 2
+      # 'to' will start from initial value 
+      # then adding a gap by each row until it reaches 1
+      to = seq(matrix[2], to = 1, by = gap)
+      # 'from' will start from initial value 
+      # then add a gap by each row until it fits the amount of 'to'
+      from = seq(matrix[1], by = gap, length = length(to))
+    }
+    # if the initial matrix has more than one row
+    else{
+      expasionTo = seq(matrix[nrow(matrix), "to"] + 0.1, by = 0.1, to = 1)
+      expasionFrom = seq(matrix[nrow(matrix), "from"] + 0.1, by = 0.1, length = length(expasionTo))
+      # append 'to' and 'from' with expasions
+      from = c(matrix[,"from"], expasionFrom)
+      to = c(matrix[,"to"], expasionTo)
+      # delete some rows
+      for (x in c(3, 5, 7)) {
+        from <- from[-x]
+      }
+      for (y in c(3, 5, 7)) {
+        to <- to[-y]
+      }
+      # make sure the last row will be [1.0, 1.0]
+      if (from[length(from)] != to[length(to)])
+        from[length(from)+1] = 1.0
+        to[length(to)+1] = 1.0
+    }
+    
+    # regenerate the matrix
+    matrix = cbind(from,to)
+    dimnames(matrix) = list(NULL, c("from", "to"))
+  }
+  print(matrix)
+}
+```
+
+Tests:
+```{r}
+segments(.1, .2, rep=TRUE)
+segments(c(.3, .1), .2, rep=TRUE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
